@@ -7,7 +7,7 @@ import model.Task;
 import model.FileManager;
 import model.MailSender;
 import java.time.LocalDate;
-
+import java.io.*;
 
 public class ChecklistAppGUI {
     private Checklist checklist;
@@ -16,13 +16,14 @@ public class ChecklistAppGUI {
     private JList<String> taskList;
     private MailSender mailSender;
     private FileManager fileManager;
-    private List<String> savedEmails; // List of saved email addresses
+    private List<String> savedEmails;
+    private static final String EMAIL_FILE = "emails.dat";
 
     public ChecklistAppGUI() {
         this.checklist = new Checklist();
         this.mailSender = new MailSender("en", "checklistultaupreferat");
         this.fileManager = new FileManager("checklist.dat");
-        this.savedEmails = new ArrayList<>(); // Initialize the list of saved emails
+        this.savedEmails = loadEmails(); // Load emails from file
         initializeGUI();
     }
 
@@ -39,21 +40,31 @@ public class ChecklistAppGUI {
 
         // Button panel
         JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new GridLayout(2, 1));
+
+        // Task buttons
+        JPanel taskButtonPanel = new JPanel();
         JButton addButton = new JButton("Add Task");
         JButton removeButton = new JButton("Remove Task");
         JButton toggleButton = new JButton("Toggle Completion");
         JButton saveButton = new JButton("Save");
         JButton loadButton = new JButton("Load");
-        JButton addEmailButton = new JButton("Add Email");
-        JButton sendSummaryButton = new JButton("Send Summary");
 
-        buttonPanel.add(addButton);
-        buttonPanel.add(removeButton);
-        buttonPanel.add(toggleButton);
-        buttonPanel.add(saveButton);
-        buttonPanel.add(loadButton);
-        buttonPanel.add(addEmailButton);
-        buttonPanel.add(sendSummaryButton);
+        taskButtonPanel.add(addButton);
+        taskButtonPanel.add(removeButton);
+        taskButtonPanel.add(toggleButton);
+        taskButtonPanel.add(saveButton);
+        taskButtonPanel.add(loadButton);
+
+        // Email button
+        JPanel emailButtonPanel = new JPanel();
+        JButton emailButton = new JButton("Manage Emails");
+
+        emailButtonPanel.add(emailButton);
+
+        buttonPanel.add(taskButtonPanel);
+        buttonPanel.add(emailButtonPanel);
+
         frame.add(buttonPanel, BorderLayout.SOUTH);
 
         // Button actions
@@ -62,11 +73,102 @@ public class ChecklistAppGUI {
         toggleButton.addActionListener(e -> toggleTaskCompletion());
         saveButton.addActionListener(e -> saveChecklist());
         loadButton.addActionListener(e -> loadChecklist());
-        addEmailButton.addActionListener(e -> addEmail());
-        sendSummaryButton.addActionListener(e -> sendSummary());
+        emailButton.addActionListener(e -> openEmailManager());
 
         frame.setVisible(true);
         loadChecklist();
+    }
+
+    private void openEmailManager() {
+        JDialog emailDialog = new JDialog(frame, "Email Manager", true);
+        emailDialog.setSize(400, 300);
+        emailDialog.setLayout(new BorderLayout());
+
+        DefaultListModel<String> emailListModel = new DefaultListModel<>();
+        savedEmails.forEach(emailListModel::addElement);
+        JList<String> emailList = new JList<>(emailListModel);
+        emailDialog.add(new JScrollPane(emailList), BorderLayout.CENTER);
+
+        JPanel emailControlPanel = new JPanel();
+        JButton addEmailButton = new JButton("Add Email");
+        JButton deleteEmailButton = new JButton("Delete Email");
+        JButton sendSummaryButton = new JButton("Send Summary");
+
+        emailControlPanel.add(addEmailButton);
+        emailControlPanel.add(deleteEmailButton);
+        emailControlPanel.add(sendSummaryButton);
+        emailDialog.add(emailControlPanel, BorderLayout.SOUTH);
+
+        // Add email functionality
+        addEmailButton.addActionListener(e -> {
+            String email = JOptionPane.showInputDialog(emailDialog, "Enter email address:");
+            if (email != null && !email.trim().isEmpty() && email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")) {
+                savedEmails.add(email);
+                emailListModel.addElement(email);
+                saveEmails();
+            } else {
+                JOptionPane.showMessageDialog(emailDialog, "Invalid or empty email.");
+            }
+        });
+
+        // Delete email functionality
+        deleteEmailButton.addActionListener(e -> {
+            int selectedIndex = emailList.getSelectedIndex();
+            if (selectedIndex != -1) {
+                savedEmails.remove(selectedIndex);
+                emailListModel.remove(selectedIndex);
+                saveEmails();
+            } else {
+                JOptionPane.showMessageDialog(emailDialog, "No email selected.");
+            }
+        });
+
+        // Send summary functionality
+        sendSummaryButton.addActionListener(e -> {
+            int selectedIndex = emailList.getSelectedIndex();
+            if (selectedIndex != -1) {
+                String selectedEmail = savedEmails.get(selectedIndex);
+                sendSummary(selectedEmail);
+            } else {
+                JOptionPane.showMessageDialog(emailDialog, "No email selected.");
+            }
+        });
+
+        emailDialog.setVisible(true);
+    }
+
+    private void sendSummary(String email) {
+        StringBuilder emailBody = new StringBuilder("Checklist Summary:\n\n");
+        for (int i = 0; i < checklist.getTaskCount(); i++) {
+            Task task = checklist.getTask(i);
+            emailBody.append("- ").append(task.getTitle())
+                    .append(" [").append(task.isCompleted() ? "Completed" : "Incomplete").append("]\n")
+                    .append("  Description: ").append(task.getDescription()).append("\n")
+                    .append("  Due Date: ").append(task.getDueDate()).append("\n\n");
+        }
+
+        boolean success = mailSender.sendMail(email, "Checklist Summary", emailBody.toString(), 1, "");
+        if (success) {
+            JOptionPane.showMessageDialog(frame, "Summary sent to " + email);
+        } else {
+            JOptionPane.showMessageDialog(frame, "Failed to send summary.");
+        }
+    }
+
+    private void saveEmails() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(EMAIL_FILE))) {
+            oos.writeObject(savedEmails);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(frame, "Failed to save emails.");
+        }
+    }
+
+    private List<String> loadEmails() {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(EMAIL_FILE))) {
+            return (List<String>) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            return new ArrayList<>();
+        }
     }
 
     private void addTask() {
@@ -111,6 +213,13 @@ public class ChecklistAppGUI {
         }
     }
 
+    private void updateTaskList() {
+        taskListModel.clear();
+        for (int i = 0; i < checklist.getTaskCount(); i++) {
+            Task task = checklist.getTask(i);
+            taskListModel.addElement(task.getTitle() + " (" + (task.isCompleted() ? "Completed" : "Incomplete") + ")");
+        }
+    }
     private void saveChecklist() {
         fileManager.save(checklist);
         JOptionPane.showMessageDialog(frame, "Checklist saved successfully.");
@@ -120,71 +229,6 @@ public class ChecklistAppGUI {
         checklist = fileManager.load();
         updateTaskList();
         JOptionPane.showMessageDialog(frame, "Checklist loaded successfully.");
-    }
-
-    private void addEmail() {
-        String email = JOptionPane.showInputDialog(frame, "Enter email address to add:");
-        if (email == null || email.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(frame, "Email address cannot be empty.");
-            return;
-        }
-
-        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")) {
-            JOptionPane.showMessageDialog(frame, "Invalid email address format.");
-            return;
-        }
-
-        savedEmails.add(email);
-        JOptionPane.showMessageDialog(frame, "Email added successfully.");
-    }
-
-    private void sendSummary() {
-        if (savedEmails.isEmpty()) {
-            JOptionPane.showMessageDialog(frame, "No saved emails. Please add an email first.");
-            return;
-        }
-
-        // Display a dropdown for email selection
-        String[] emailArray = savedEmails.toArray(new String[0]);
-        String selectedEmail = (String) JOptionPane.showInputDialog(
-                frame,
-                "Select an email to send the summary:",
-                "Send Summary",
-                JOptionPane.QUESTION_MESSAGE,
-                null,
-                emailArray,
-                emailArray[0]
-        );
-
-        if (selectedEmail == null || selectedEmail.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(frame, "No email selected.");
-            return;
-        }
-
-        // Build the email summary
-        StringBuilder emailBody = new StringBuilder("Checklist Summary:\n\n");
-        for (int i = 0; i < checklist.getTaskCount(); i++) {
-            Task task = checklist.getTask(i);
-            emailBody.append("- ").append(task.getTitle())
-                    .append(" [").append(task.isCompleted() ? "Completed" : "Incomplete").append("]\n")
-                    .append("  Description: ").append(task.getDescription()).append("\n")
-                    .append("  Due Date: ").append(task.getDueDate()).append("\n\n");
-        }
-
-        boolean success = mailSender.sendMail(selectedEmail, "Checklist Summary", emailBody.toString(), 1, "");
-        if (success) {
-            JOptionPane.showMessageDialog(frame, "Email sent successfully to " + selectedEmail);
-        } else {
-            JOptionPane.showMessageDialog(frame, "Failed to send email.");
-        }
-    }
-
-    private void updateTaskList() {
-        taskListModel.clear();
-        for (int i = 0; i < checklist.getTaskCount(); i++) {
-            Task task = checklist.getTask(i);
-            taskListModel.addElement(task.getTitle() + " (" + (task.isCompleted() ? "Completed" : "Incomplete") + ")");
-        }
     }
 
     public static void main(String[] args) {
