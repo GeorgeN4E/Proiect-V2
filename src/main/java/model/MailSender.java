@@ -1,8 +1,11 @@
+package model;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 import org.json.JSONObject;
 
 public class MailSender {
@@ -37,6 +40,8 @@ public class MailSender {
                         .build();
 
                 HttpResponse<String> response = httpClient.send(getCaptchaRequest, HttpResponse.BodyHandlers.ofString());
+
+                // Parse the response
                 JSONObject captchaResponse = new JSONObject(response.body());
                 captchaId = captchaResponse.getString("authID");
                 String captchaCode = captchaResponse.getString("captchaCode");
@@ -44,21 +49,21 @@ public class MailSender {
                 // Log raw response for debugging
                 System.out.println("Captcha Request Response: " + response.body());
 
-                // Print captcha and ask for user input
+                // Display captcha and ask for input
                 System.out.println("Captcha Code:\n" + captchaCode);
                 System.out.print("Solve Captcha (r for reload, e for exit): ");
                 String solution = scanner.nextLine();
 
                 if (solution.equalsIgnoreCase("r")) {
                     System.out.println("Reloading captcha...");
-                    continue;
+                    continue; // Restart the loop to request a new captcha
                 }
                 if (solution.equalsIgnoreCase("e")) {
                     System.out.println("Exiting captcha verification...");
-                    return "";
+                    return ""; // Exit without completing captcha
                 }
 
-                // Verify captcha solution
+                // Verify the captcha solution
                 HttpRequest verifyCaptchaRequest = HttpRequest.newBuilder()
                         .uri(URI.create(verifyCaptchaUrl + "?locale=" + locale + "&authID=" + captchaId + "&captchaSolution=" + solution))
                         .header("accept", "application/json, text/javascript, */*; q=0.01")
@@ -72,7 +77,7 @@ public class MailSender {
                 // Log raw response for debugging
                 System.out.println("Verify Captcha Response: " + verifyResponse.body());
 
-                // Check if authSuccess is present in the response
+                // Check the response for success
                 if (verifyResponseJson.has("authSuccess")) {
                     authSuccess = verifyResponseJson.getBoolean("authSuccess");
                     if (!authSuccess) {
@@ -84,8 +89,9 @@ public class MailSender {
                     System.out.println("authSuccess field not found in response.");
                 }
             } catch (Exception e) {
+                System.err.println("Error verifying captcha: " + e.getMessage());
                 e.printStackTrace();
-                return "";
+                return ""; // Exit on failure
             }
         }
         return captchaId;
@@ -94,15 +100,21 @@ public class MailSender {
     // Method to send email
     public boolean sendMail(String recipient, String subject, String text, int mode, String captchaId) {
         try {
+            // Validate recipient email
+            if (!isValidEmail(recipient)) {
+                System.out.println("Invalid recipient email address.");
+                return false;
+            }
+
             if (mode == 1) {
-                captchaId = verifyCaptchaAsUserInput();
+                captchaId = verifyCaptchaAsUserInput(); // Prompt user to solve captcha
             }
             if (captchaId == null || captchaId.isEmpty()) {
                 System.out.println("Captcha verification failed or cancelled. Email will not be sent.");
                 return false;
             }
 
-            // Prepare the email data
+            // Prepare email data
             JSONObject emailData = new JSONObject();
             emailData.put("authID", captchaId);
             emailData.put("replyMailID", "");
@@ -125,11 +137,19 @@ public class MailSender {
             // Log raw response for debugging
             System.out.println("Send Mail Response: " + response.body());
 
+            // Check if the email was sent successfully
             return sendResponse.getBoolean("sendSuccess");
         } catch (Exception e) {
+            System.err.println("Error sending email: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
+    }
+
+    // Helper method to validate email addresses
+    private boolean isValidEmail(String email) {
+        String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$";
+        return Pattern.compile(emailRegex).matcher(email).matches();
     }
 
     public static void main(String[] args) {
