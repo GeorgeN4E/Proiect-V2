@@ -153,7 +153,7 @@ public class MailSender {
     }
 
     public static void main(String[] args) {
-        MailSender mailSender = new MailSender("en", "numelemeunumelemeu@example.com");
+        MailSender mailSender = new MailSender("en", "checklistul_tau_preferat");
 
         // Example usage
         boolean success = mailSender.sendMail(
