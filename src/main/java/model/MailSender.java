@@ -23,7 +23,6 @@ public class MailSender {
         this.httpClient = HttpClient.newHttpClient();
     }
 
-    // Method to verify captcha with user input
     private String verifyCaptchaAsUserInput() {
         String captchaId = "";
         Scanner scanner = new Scanner(System.in);
@@ -31,7 +30,7 @@ public class MailSender {
 
         while (!authSuccess) {
             try {
-                // Request a new captcha
+                // new captcha
                 HttpRequest getCaptchaRequest = HttpRequest.newBuilder()
                         .uri(URI.create(getCaptchaUrl + "?locale=" + locale))
                         .header("accept", "application/json, text/javascript, */*; q=0.01")
@@ -41,15 +40,12 @@ public class MailSender {
 
                 HttpResponse<String> response = httpClient.send(getCaptchaRequest, HttpResponse.BodyHandlers.ofString());
 
-                // Parse the response
                 JSONObject captchaResponse = new JSONObject(response.body());
                 captchaId = captchaResponse.getString("authID");
                 String captchaCode = captchaResponse.getString("captchaCode");
 
-                // Log raw response for debugging
                 System.out.println("Captcha Request Response: " + response.body());
 
-                // Display captcha and ask for input
                 System.out.println("Captcha Code:\n" + captchaCode);
                 System.out.print("Solve Captcha (r for reload, e for exit): ");
                 String solution = scanner.nextLine();
@@ -63,7 +59,6 @@ public class MailSender {
                     return ""; // Exit without completing captcha
                 }
 
-                // Verify the captcha solution
                 HttpRequest verifyCaptchaRequest = HttpRequest.newBuilder()
                         .uri(URI.create(verifyCaptchaUrl + "?locale=" + locale + "&authID=" + captchaId + "&captchaSolution=" + solution))
                         .header("accept", "application/json, text/javascript, */*; q=0.01")
@@ -74,10 +69,8 @@ public class MailSender {
                 HttpResponse<String> verifyResponse = httpClient.send(verifyCaptchaRequest, HttpResponse.BodyHandlers.ofString());
                 JSONObject verifyResponseJson = new JSONObject(verifyResponse.body());
 
-                // Log raw response for debugging
                 System.out.println("Verify Captcha Response: " + verifyResponse.body());
 
-                // Check the response for success
                 if (verifyResponseJson.has("authSuccess")) {
                     authSuccess = verifyResponseJson.getBoolean("authSuccess");
                     if (!authSuccess) {
@@ -97,10 +90,8 @@ public class MailSender {
         return captchaId;
     }
 
-    // Method to send email
     public boolean sendMail(String recipient, String subject, String text, int mode, String captchaId) {
         try {
-            // Validate recipient email
             if (!isValidEmail(recipient)) {
                 System.out.println("Invalid recipient email address.");
                 return false;
@@ -114,7 +105,6 @@ public class MailSender {
                 return false;
             }
 
-            // Prepare email data
             JSONObject emailData = new JSONObject();
             emailData.put("authID", captchaId);
             emailData.put("replyMailID", "");
@@ -123,7 +113,6 @@ public class MailSender {
             emailData.put("recipient", recipient);
             emailData.put("bodyText", text);
 
-            // Send email request
             HttpRequest sendMailRequest = HttpRequest.newBuilder()
                     .uri(URI.create(sendMailUrl + "?locale=" + locale))
                     .header("accept", "*/*")
@@ -134,10 +123,8 @@ public class MailSender {
             HttpResponse<String> response = httpClient.send(sendMailRequest, HttpResponse.BodyHandlers.ofString());
             JSONObject sendResponse = new JSONObject(response.body());
 
-            // Log raw response for debugging
             System.out.println("Send Mail Response: " + response.body());
 
-            // Check if the email was sent successfully
             return sendResponse.getBoolean("sendSuccess");
         } catch (Exception e) {
             System.err.println("Error sending email: " + e.getMessage());
@@ -146,7 +133,6 @@ public class MailSender {
         }
     }
 
-    // Helper method to validate email addresses
     private boolean isValidEmail(String email) {
         String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$";
         return Pattern.compile(emailRegex).matcher(email).matches();
@@ -155,7 +141,6 @@ public class MailSender {
     public static void main(String[] args) {
         MailSender mailSender = new MailSender("en", "checklistul_tau_preferat");
 
-        // Example usage
         boolean success = mailSender.sendMail(
                 "georgeradu190@yahoo.com",
                 "Test Subject",

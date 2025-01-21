@@ -23,14 +23,14 @@ public class ChecklistAppGUI {
         this.checklist = new Checklist();
         this.mailSender = new MailSender("en", "checklistultaupreferat");
         this.fileManager = new FileManager("checklist.dat");
-        this.savedEmails = loadEmails(); // Load emails from file
+        this.savedEmails = loadEmails();
         initializeGUI();
     }
 
     private void initializeGUI() {
         frame = new JFrame("Checklist Application");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(600, 400);
+        frame.setSize(800, 600);
         frame.setLayout(new BorderLayout());
 
         // Task list panel
@@ -56,7 +56,6 @@ public class ChecklistAppGUI {
         taskButtonPanel.add(saveButton);
         taskButtonPanel.add(loadButton);
 
-        // Email button
         JPanel emailButtonPanel = new JPanel();
         JButton emailButton = new JButton("Manage Emails");
 
@@ -67,7 +66,6 @@ public class ChecklistAppGUI {
 
         frame.add(buttonPanel, BorderLayout.SOUTH);
 
-        // Button actions
         addButton.addActionListener(e -> addTask());
         removeButton.addActionListener(e -> removeTask());
         toggleButton.addActionListener(e -> toggleTaskCompletion());
@@ -99,7 +97,6 @@ public class ChecklistAppGUI {
         emailControlPanel.add(sendSummaryButton);
         emailDialog.add(emailControlPanel, BorderLayout.SOUTH);
 
-        // Add email functionality
         addEmailButton.addActionListener(e -> {
             String email = JOptionPane.showInputDialog(emailDialog, "Enter email address:");
             if (email != null && !email.trim().isEmpty() && email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")) {
@@ -111,7 +108,6 @@ public class ChecklistAppGUI {
             }
         });
 
-        // Delete email functionality
         deleteEmailButton.addActionListener(e -> {
             int selectedIndex = emailList.getSelectedIndex();
             if (selectedIndex != -1) {
@@ -123,7 +119,6 @@ public class ChecklistAppGUI {
             }
         });
 
-        // Send summary functionality
         sendSummaryButton.addActionListener(e -> {
             int selectedIndex = emailList.getSelectedIndex();
             if (selectedIndex != -1) {

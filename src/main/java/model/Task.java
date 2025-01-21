@@ -9,7 +9,6 @@ public class Task implements Serializable {
     private boolean isCompleted;
     private LocalDate dueDate;
 
-    // Constructor
     public Task(String title, String description, LocalDate dueDate) {
         this.title = title;
         this.description = description;
@@ -17,24 +16,20 @@ public class Task implements Serializable {
         this.dueDate = dueDate;
     }
 
-    // Marks the task as complete
     public void markComplete() {
         isCompleted = true;
     }
 
-    // Marks the task as incomplete
     public void markIncomplete() {
         isCompleted = false;
     }
 
-    // Edits the task's details
     public void editTask(String newTitle, String newDescription, LocalDate newDueDate) {
         this.title = newTitle;
         this.description = newDescription;
         this.dueDate = newDueDate;
     }
 
-    // Getters
     public String getTitle() {
         return title;
     }
@@ -51,7 +46,6 @@ public class Task implements Serializable {
         return dueDate;
     }
 
-    // String representation of the task
     @Override
     public String toString() {
         String status = isCompleted ? "Completed" : "Pending";
